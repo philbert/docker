@@ -1,6 +1,10 @@
 FROM java:8-jdk
 
-RUN apt-get update && apt-get install -y git curl zip && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y git curl zip vim sudo apt-transport-https ca-certificates
+RUN apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys F76221572C52609D
+RUN echo "deb https://apt.dockerproject.org/repo debian-jessie main" >> /etc/apt/sources.list.d/docker.list
+RUN apt-get update -y && apt-get install -y docker-engine
+RUN rm -rf /var/lib/apt/lists/*
 
 ENV JENKINS_HOME /var/jenkins_home
 ENV JENKINS_SLAVE_AGENT_PORT 50000
@@ -15,6 +19,9 @@ ARG gid=1000
 # ensure you use the same uid
 RUN groupadd -g ${gid} ${group} \
     && useradd -d "$JENKINS_HOME" -u ${uid} -g ${gid} -m -s /bin/bash ${user}
+
+# add jenkins user to sudoers to run docker commands
+RUN echo "jenkins ALL=NOPASSWD: ALL" >> /etc/sudoers
 
 # Jenkins home directory is a volume, so configuration and build history 
 # can be persisted and survive image upgrades
@@ -34,9 +41,9 @@ RUN curl -fsSL https://github.com/krallin/tini/releases/download/v0.5.0/tini-sta
 COPY init.groovy /usr/share/jenkins/ref/init.groovy.d/tcp-slave-agent-port.groovy
 
 ARG JENKINS_VERSION
-ENV JENKINS_VERSION ${JENKINS_VERSION:-2.0}
+ENV JENKINS_VERSION ${JENKINS_VERSION:-2.11}
 ARG JENKINS_SHA
-ENV JENKINS_SHA ${JENKINS_SHA:-da06f963edb627f0ced2fce612f9985d1928f79b}
+ENV JENKINS_SHA ${JENKINS_SHA:-35dcb66a4f4d43d9cbbb8109e57b079e1292ff5e}
 
 
 # could use ADD but this one does not check Last-Modified header 
