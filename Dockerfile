@@ -1,20 +1,34 @@
 FROM openjdk:8-jdk
 
-RUN apt-get update && apt-get install -y git curl zip && rm -rf /var/lib/apt/lists/*
+# install way more than what we should
+RUN apt-get update && apt-get install -y git curl zip vim sudo
 
 ENV JENKINS_HOME /var/jenkins_home
 ENV JENKINS_SLAVE_AGENT_PORT 50000
 
-ARG user=jenkins
-ARG group=jenkins
-ARG uid=1000
-ARG gid=1000
-
 # Jenkins is run with user `jenkins`, uid = 1000
 # If you bind mount a volume from the host or a data container, 
 # ensure you use the same uid
-RUN groupadd -g ${gid} ${group} \
-    && useradd -d "$JENKINS_HOME" -u ${uid} -g ${gid} -m -s /bin/bash ${user}
+RUN groupadd -g 1000 jenkins \
+    && useradd -d "$JENKINS_HOME" -u 1000 -g 1000 -m -s /bin/bash jenkins
+
+# make sure to do this before installing docker engine
+RUN groupadd -g 992 docker  \
+    && usermod -a -G docker jenkins
+
+# install docker engine 1.11.2
+RUN curl -L https://get.docker.com/builds/Linux/x86_64/docker-1.11.2.tgz > docker.tgz && \
+  tar -xvzf docker.tgz && \
+  mv docker/* /usr/bin && \
+  chmod +x /usr/bin/* && \
+  rmdir docker
+
+# add docker-compose 
+RUN curl -L https://github.com/docker/compose/releases/download/1.8.0/docker-compose-`uname -s`-`uname -m` > /usr/bin/docker-compose
+RUN chmod +x /usr/bin/docker-compose
+
+# add jenkins user to sudoers to run docker commands
+RUN echo "jenkins ALL=NOPASSWD: ALL" >> /etc/sudoers
 
 # Jenkins home directory is a volume, so configuration and build history 
 # can be persisted and survive image upgrades
@@ -50,7 +64,7 @@ RUN curl -fsSL ${JENKINS_URL} -o /usr/share/jenkins/jenkins.war \
   && echo "${JENKINS_SHA}  /usr/share/jenkins/jenkins.war" | sha1sum -c -
 
 ENV JENKINS_UC https://updates.jenkins.io
-RUN chown -R ${user} "$JENKINS_HOME" /usr/share/jenkins/ref
+RUN chown -R jenkins "$JENKINS_HOME" /usr/share/jenkins/ref
 
 # for main web interface:
 EXPOSE 8080
@@ -60,7 +74,7 @@ EXPOSE 50000
 
 ENV COPY_REFERENCE_FILE_LOG $JENKINS_HOME/copy_reference_file.log
 
-USER ${user}
+USER jenkins
 
 COPY jenkins-support /usr/local/bin/jenkins-support
 COPY jenkins.sh /usr/local/bin/jenkins.sh
