@@ -6,6 +6,9 @@ node('master') {
   docker.build('jenkins')
 
   stage 'Test'
-  sh "git checkout https://github.com/sstephenson/bats.git"
-  sh "bats/bin/bats tests/tests.bats"
+  git url: 'https://github.com/sstephenson/bats.git'
+  sh "ls -la .."
+  sh "ls -la"
+  //sh "bin/bats test/bats.bats"
+  sh "bin/bats test/suite.bats"
 }
